@@ -378,8 +378,11 @@
         // GOD LEVEL SUPREME HAND TRACKING ENGINE 🔥
         // ============================================================
 
+        // Detect mobile for performance optimization
+        const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const PARTICLE_COUNT = IS_MOBILE ? 3000 : 6000;  // Less particles on mobile for smooth FPS
+
         let scene, camera, renderer, particleSystem, controls;
-        const PARTICLE_COUNT = 6000;
         let currentShape = 'sphere';
 
         // Hand tracking state with ENHANCED smoothing
@@ -726,14 +729,17 @@
 
             statusEl.innerText = "STARTING CAMERA...";
 
+            // Detect mobile for optimized settings
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
             try {
-                // Request camera with optimal settings
+                // Request camera with optimal settings - lower for mobile
                 const constraints = {
                     video: {
-                        width: { ideal: 640, max: 1280 },
-                        height: { ideal: 480, max: 720 },
+                        width: { ideal: isMobile ? 320 : 640, max: isMobile ? 480 : 1280 },
+                        height: { ideal: isMobile ? 240 : 480, max: isMobile ? 360 : 720 },
                         facingMode: 'user',
-                        frameRate: { ideal: 30, max: 60 }
+                        frameRate: { ideal: isMobile ? 20 : 30, max: 30 }
                     }
                 };
 
