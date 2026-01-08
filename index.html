@@ -4,19 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gesticulate - Minimal 3D Particles</title>
+    <title>Gesticulate - GOD LEVEL SUPREME 🔥</title>
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- MediaPipe Hands -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <!-- MediaPipe Hands - Latest Version with WASM SIMD -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js"
+        crossorigin="anonymous"></script>
     <!-- GSAP for smooth transitions -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
 
     <style>
         :root {
             --primary: #4e9aff;
+            --success: #00ff88;
             --glass: rgba(10, 10, 10, 0.7);
             --border: rgba(255, 255, 255, 0.1);
         }
@@ -36,6 +41,30 @@
             left: 0;
             width: 100%;
             height: 100%;
+        }
+
+        /* DEBUG CANVAS - shows hand tracking overlay */
+        #debug-canvas {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 200px;
+            height: 150px;
+            border-radius: 15px;
+            border: 2px solid var(--primary);
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 5px 30px rgba(78, 154, 255, 0.4);
+        }
+
+        @media (max-width: 600px) {
+            #debug-canvas {
+                width: 120px;
+                height: 90px;
+                top: auto;
+                bottom: 150px;
+                left: 10px;
+            }
         }
 
         /* Minimal UI Components */
@@ -148,6 +177,13 @@
             border-radius: 30px;
             border: 1px solid var(--border);
             color: #ff4e4e;
+            transition: all 0.3s ease;
+        }
+
+        #tracking-status.active {
+            color: var(--success);
+            border-color: var(--success);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
         }
 
         .toggle-icon {
@@ -183,6 +219,20 @@
             letter-spacing: 0.1em;
             box-shadow: 0 10px 30px rgba(78, 154, 255, 0.3);
             cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(78, 154, 255, 0.5);
+        }
+
+        #loading-text {
+            color: #666;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-top: 20px;
+            letter-spacing: 0.2em;
         }
 
         /* Color Pill */
@@ -197,6 +247,7 @@
 
         input[type="color"] {
             -webkit-appearance: none;
+            appearance: none;
             border: none;
             width: 24px;
             height: 24px;
@@ -226,12 +277,7 @@
             }
 
             #legend-panel {
-                bottom: auto;
-                top: 20px;
-                left: 15px;
-                right: 15px;
-                max-width: none;
-                padding: 10px 15px;
+                display: none;
             }
 
             .collapsed .legend-content,
@@ -254,10 +300,27 @@
             }
 
             #tracking-status {
-                top: 75px;
+                top: 10px;
                 bottom: auto;
-                right: 20px;
+                right: 10px;
             }
+        }
+
+        /* Loading animation */
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
@@ -265,12 +328,14 @@
 <body>
 
     <div id="start-overlay">
-        <button class="start-btn" onclick="startApp()">START EXPERIENCE</button>
-        <p style="color: #666; font-size: 0.7rem; font-weight: 600; margin-top: 20px; letter-spacing: 0.2em;">HAND
-            TRACKING 3D</p>
+        <button class="start-btn" onclick="startApp()">🖐️ START EXPERIENCE</button>
+        <p id="loading-text">GOD LEVEL HAND TRACKING 🔥</p>
     </div>
 
     <div id="container"></div>
+
+    <!-- Debug canvas to show hand tracking -->
+    <canvas id="debug-canvas"></canvas>
 
     <div id="legend-panel" class="glass-panel collapsed" onclick="togglePanel('legend-panel')">
         <div class="panel-header">
@@ -304,21 +369,125 @@
         </div>
     </div>
 
-    <div id="tracking-status">NO HAND</div>
+    <div id="tracking-status">INITIALIZING...</div>
 
-    <video id="webcam" style="display:none;" autoplay playsinline></video>
+    <video id="webcam" style="display:none;" autoplay playsinline muted></video>
 
     <script>
+        // ============================================================
+        // GOD LEVEL SUPREME HAND TRACKING ENGINE 🔥
+        // ============================================================
+
         let scene, camera, renderer, particleSystem, controls;
         const PARTICLE_COUNT = 6000;
         let currentShape = 'sphere';
+
+        // Hand tracking state with ENHANCED smoothing
         let handTension = 0.5, lerpedTension = 0.5;
         let handPos = { x: 0, y: 0 }, lerpedHandPos = { x: 0, y: 0 };
         let handRotation = 0, lerpedHandRotation = 0;
         let baseColor = new THREE.Color(0x4e9aff);
 
+        // Tracking stats for debugging
+        let trackingStats = {
+            framesProcessed: 0,
+            handsDetected: 0,
+            lastDetectionTime: 0,
+            fps: 0
+        };
+
+        // Debug canvas context
+        let debugCtx = null;
+        const debugCanvas = document.getElementById('debug-canvas');
+
+        // Smooth lerp factor - HIGHER = more responsive, LOWER = smoother
+        const LERP_FACTOR = 0.15;
+        const ROTATION_LERP = 0.12;
+
         function togglePanel(id) {
             document.getElementById(id).classList.toggle('collapsed');
+        }
+
+        function initDebugCanvas() {
+            debugCtx = debugCanvas.getContext('2d');
+            // Set internal resolution
+            debugCanvas.width = 320;
+            debugCanvas.height = 240;
+        }
+
+        function drawDebugOverlay(landmarks, image) {
+            if (!debugCtx) return;
+
+            const ctx = debugCtx;
+            const w = debugCanvas.width;
+            const h = debugCanvas.height;
+
+            // Clear and draw mirrored video frame
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(image, -w, 0, w, h);
+            ctx.restore();
+
+            if (landmarks && landmarks.length > 0) {
+                const lm = landmarks[0];
+
+                // Draw connections (skeleton)
+                const connections = [
+                    [0, 1], [1, 2], [2, 3], [3, 4],  // Thumb
+                    [0, 5], [5, 6], [6, 7], [7, 8],  // Index
+                    [0, 9], [9, 10], [10, 11], [11, 12], // Middle
+                    [0, 13], [13, 14], [14, 15], [15, 16], // Ring
+                    [0, 17], [17, 18], [18, 19], [19, 20], // Pinky
+                    [5, 9], [9, 13], [13, 17] // Palm
+                ];
+
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#00ff88';
+                ctx.shadowBlur = 10;
+
+                connections.forEach(([start, end]) => {
+                    ctx.beginPath();
+                    ctx.moveTo((1 - lm[start].x) * w, lm[start].y * h);
+                    ctx.lineTo((1 - lm[end].x) * w, lm[end].y * h);
+                    ctx.stroke();
+                });
+
+                // Draw landmarks
+                ctx.shadowBlur = 15;
+                lm.forEach((point, idx) => {
+                    const x = (1 - point.x) * w;
+                    const y = point.y * h;
+
+                    // Fingertips are brighter
+                    if ([4, 8, 12, 16, 20].includes(idx)) {
+                        ctx.fillStyle = '#ff4e4e';
+                        ctx.beginPath();
+                        ctx.arc(x, y, 6, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (idx === 0) {
+                        // Wrist - special marker
+                        ctx.fillStyle = '#4e9aff';
+                        ctx.beginPath();
+                        ctx.arc(x, y, 8, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(x, y, 4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw FPS and stats
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(0, 0, w, 20);
+            ctx.fillStyle = '#00ff88';
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(`FPS: ${trackingStats.fps} | DETECTS: ${trackingStats.handsDetected}`, 5, 14);
         }
 
         function initThree() {
@@ -456,53 +625,219 @@
             }
         }
 
-        // MediaPipe
-        const hands = new Hands({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-        hands.onResults(res => {
+        // ============================================================
+        // GOD LEVEL MEDIAPIPE SETUP 🔥
+        // ============================================================
+
+        let hands = null;
+        let mpCamera = null;
+        let isProcessing = false;
+        let lastFrameTime = performance.now();
+
+        function initMediaPipe() {
+            const loadingText = document.getElementById('loading-text');
+            loadingText.classList.add('loading');
+            loadingText.textContent = 'LOADING AI MODEL...';
+
+            hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`;
+                }
+            });
+
+            // GOD LEVEL SETTINGS 🔥
+            hands.setOptions({
+                selfieMode: true,
+                maxNumHands: 1,
+                modelComplexity: 1,  // 0 = Lite, 1 = Full (more accurate)
+                minDetectionConfidence: 0.7,  // HIGHER = less false positives
+                minTrackingConfidence: 0.6    // HIGHER = more stable tracking
+            });
+
+            hands.onResults(onHandResults);
+
+            return hands.initialize().then(() => {
+                loadingText.textContent = 'AI MODEL READY ✓';
+                console.log('🔥 GOD LEVEL MediaPipe initialized!');
+            });
+        }
+
+        function onHandResults(results) {
+            const now = performance.now();
+            const delta = now - lastFrameTime;
+            lastFrameTime = now;
+            trackingStats.fps = Math.round(1000 / delta);
+            trackingStats.framesProcessed++;
+
             const st = document.getElementById('tracking-status');
-            if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
-                st.innerText = "TRACKING"; st.style.color = "#4e9aff";
-                const lm = res.multiHandLandmarks[0];
-                handPos.x = -(lm[0].x - 0.5) * 30; handPos.y = -(lm[0].y - 0.5) * 20;
-                let d = 0;[4, 8, 12, 16, 20].forEach(i => {
-                    d += Math.sqrt(Math.pow(lm[i].x - lm[0].x, 2) + Math.pow(lm[i].y - lm[0].y, 2));
+
+            // Draw debug overlay
+            drawDebugOverlay(results.multiHandLandmarks, results.image);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                st.innerText = "🖐️ TRACKING";
+                st.classList.add('active');
+                trackingStats.handsDetected++;
+                trackingStats.lastDetectionTime = now;
+
+                const lm = results.multiHandLandmarks[0];
+
+                // ENHANCED position calculation - use palm center for stability
+                const palmX = (lm[0].x + lm[5].x + lm[17].x) / 3;
+                const palmY = (lm[0].y + lm[5].y + lm[17].y) / 3;
+                handPos.x = (palmX - 0.5) * 35;  // Removed negative - now follows hand naturally
+                handPos.y = -(palmY - 0.5) * 25;
+
+                // ENHANCED tension calculation using 3D distance
+                let totalDist = 0;
+                const fingertips = [4, 8, 12, 16, 20];
+                fingertips.forEach(idx => {
+                    const dx = lm[idx].x - lm[0].x;
+                    const dy = lm[idx].y - lm[0].y;
+                    const dz = (lm[idx].z || 0) - (lm[0].z || 0);
+                    totalDist += Math.sqrt(dx * dx + dy * dy + dz * dz);
                 });
-                handTension = Math.max(0.1, Math.min(2, (d / 5 - 0.1) / 0.4));
-                handRotation = Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x) + Math.PI / 2;
+
+                // Normalize tension to 0.2 - 2.5 range
+                const avgDist = totalDist / 5;
+                handTension = Math.max(0.2, Math.min(2.5, (avgDist - 0.05) / 0.35 * 2));
+
+                // ENHANCED rotation using index finger direction
+                const dx = lm[9].x - lm[0].x;
+                const dy = lm[9].y - lm[0].y;
+                handRotation = Math.atan2(dy, dx) + Math.PI / 2;
+
             } else {
-                st.innerText = "NO HAND"; st.style.color = "#ff4e4e";
-                handPos = { x: 0, y: 0 }; handTension = 0.5; handRotation = 0;
+                // Grace period before resetting
+                if (now - trackingStats.lastDetectionTime > 500) {
+                    st.innerText = "NO HAND";
+                    st.classList.remove('active');
+                    // Smooth return to default
+                    handTension = handTension * 0.95 + 0.5 * 0.05;
+                }
             }
-        });
+
+            isProcessing = false;
+        }
+
+        async function startCamera() {
+            const videoElement = document.getElementById('webcam');
+            const statusEl = document.getElementById('tracking-status');
+
+            statusEl.innerText = "STARTING CAMERA...";
+
+            try {
+                // Request camera with optimal settings
+                const constraints = {
+                    video: {
+                        width: { ideal: 640, max: 1280 },
+                        height: { ideal: 480, max: 720 },
+                        facingMode: 'user',
+                        frameRate: { ideal: 30, max: 60 }
+                    }
+                };
+
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = stream;
+
+                await new Promise((resolve) => {
+                    videoElement.onloadedmetadata = () => {
+                        videoElement.play();
+                        resolve();
+                    };
+                });
+
+                console.log('📷 Camera started:', stream.getVideoTracks()[0].getSettings());
+                statusEl.innerText = "CAMERA READY";
+
+                // Start processing frames
+                processFrames();
+
+            } catch (err) {
+                console.error('Camera error:', err);
+                statusEl.innerText = "CAMERA ERROR";
+                statusEl.style.color = '#ff4e4e';
+
+                // Retry once
+                setTimeout(async () => {
+                    try {
+                        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        videoElement.srcObject = fallbackStream;
+                        await videoElement.play();
+                        processFrames();
+                    } catch (e) {
+                        alert('Camera access required! Please allow camera permissions and refresh.');
+                    }
+                }, 1000);
+            }
+        }
+
+        async function processFrames() {
+            const videoElement = document.getElementById('webcam');
+
+            async function loop() {
+                if (!isProcessing && videoElement.readyState >= 2) {
+                    isProcessing = true;
+                    try {
+                        await hands.send({ image: videoElement });
+                    } catch (e) {
+                        console.warn('Frame processing error:', e);
+                        isProcessing = false;
+                    }
+                }
+                requestAnimationFrame(loop);
+            }
+
+            loop();
+        }
 
         async function startApp() {
-            document.getElementById('start-overlay').style.display = 'none';
-            initThree(); requestAnimationFrame(animate);
-            const cam = new Camera(document.getElementById('webcam'), {
-                onFrame: async () => { await hands.send({ image: document.getElementById('webcam') }); },
-                width: 640, height: 480, facingMode: 'user'
-            });
-            cam.start();
+            const overlay = document.getElementById('start-overlay');
+            const loadingText = document.getElementById('loading-text');
+
+            loadingText.textContent = 'INITIALIZING...';
+            loadingText.classList.add('loading');
+
+            // Initialize debug canvas
+            initDebugCanvas();
+
+            // Initialize Three.js
+            initThree();
+            requestAnimationFrame(animate);
+
+            // Initialize MediaPipe
+            await initMediaPipe();
+
+            // Hide overlay
+            overlay.style.display = 'none';
+
+            // Start camera
+            await startCamera();
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            lerpedTension += (handTension - lerpedTension) * 0.1;
-            lerpedHandPos.x += (handPos.x - lerpedHandPos.x) * 0.1;
-            lerpedHandPos.y += (handPos.y - lerpedHandPos.y) * 0.1;
-            lerpedHandRotation += (handRotation - lerpedHandRotation) * 0.1;
+
+            // ENHANCED smooth interpolation
+            lerpedTension += (handTension - lerpedTension) * LERP_FACTOR;
+            lerpedHandPos.x += (handPos.x - lerpedHandPos.x) * LERP_FACTOR;
+            lerpedHandPos.y += (handPos.y - lerpedHandPos.y) * LERP_FACTOR;
+            lerpedHandRotation += (handRotation - lerpedHandRotation) * ROTATION_LERP;
+
             if (particleSystem) {
-                particleSystem.scale.setScalar(0.5 + lerpedTension * 2.5);
+                particleSystem.scale.setScalar(0.5 + lerpedTension * 2);
                 particleSystem.position.set(lerpedHandPos.x, lerpedHandPos.y, 0);
                 particleSystem.rotation.z = lerpedHandRotation;
                 particleSystem.rotation.y += 0.005;
             }
-            controls.update(); renderer.render(scene, camera);
+
+            controls.update();
+            renderer.render(scene, camera);
         }
 
         document.getElementById('colorPicker').addEventListener('input', e => {
-            baseColor.set(e.target.value); updateColors();
+            baseColor.set(e.target.value);
+            updateColors();
         });
     </script>
 </body>
