@@ -516,7 +516,8 @@
             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
             const material = new THREE.PointsMaterial({
-                size: 0.08, vertexColors: true, transparent: true,
+                size: IS_MOBILE ? 0.06 : 0.08,  // Smaller on mobile
+                vertexColors: true, transparent: true,
                 opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false
             });
 
@@ -640,7 +641,7 @@
         function initMediaPipe() {
             const loadingText = document.getElementById('loading-text');
             loadingText.classList.add('loading');
-            loadingText.textContent = 'LOADING AI MODEL...';
+            loadingText.textContent = 'LOADING AI MODEL (~15MB)...';
 
             hands = new Hands({
                 locateFile: (file) => {
@@ -831,7 +832,10 @@
             lerpedHandRotation += (handRotation - lerpedHandRotation) * ROTATION_LERP;
 
             if (particleSystem) {
-                particleSystem.scale.setScalar(0.5 + lerpedTension * 2);
+                // Mobile gets smaller scale for better control on small screens
+                const baseScale = IS_MOBILE ? 0.3 : 0.5;
+                const tensionMultiplier = IS_MOBILE ? 1.2 : 2;
+                particleSystem.scale.setScalar(baseScale + lerpedTension * tensionMultiplier);
                 particleSystem.position.set(lerpedHandPos.x, lerpedHandPos.y, 0);
                 particleSystem.rotation.z = lerpedHandRotation;
                 particleSystem.rotation.y += 0.005;
